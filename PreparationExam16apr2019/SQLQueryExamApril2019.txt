@@ -179,6 +179,72 @@ SELECT p.FirstName AS [First Name],
 GROUP BY FirstName, LastName	
 ORDER BY [Total Trips] DESC, FirstName,LastName
 
+--    14. Full Info
+
+SELECT CONCAT (pass.FirstName,' ',pass.LastName) AS [Full Name],
+		planes.[Name] AS [Plane Name],
+		CONCAT(f.Origin,' ','-',' ',f.Destination) AS Trip,
+		lt.[Type] AS [Luggage Type]
+FROM Tickets AS t
+	JOIN Passengers AS pass
+	ON pass.Id = t.PassengerId
+	JOIN Flights AS f
+	ON t.FlightId = f.Id
+	JOIN Planes AS planes
+	ON f.PlaneId =planes.Id
+	JOIN Luggages AS l
+	ON t.LuggageId = l.Id
+	JOIN LuggageTypes AS lt
+	ON l.LuggageTypeId = lt.Id
+ORDER BY [Full Name],
+		[Plane Name],
+		f.Origin,
+		f.Destination,
+		lt.[Type]
+
+--	    15. Most Expensive Trips
+SELECT k.FirstName ,
+		k.LastName,
+		k.Destination,
+		k.Price
+FROM 
+	(SELECT p.FirstName,p.LastName,
+			f.Destination, t.Price,
+			DENSE_RANK() OVER (PARTITION BY p.FirstName, p.LastName 
+						ORDER BY t.Price DESC) AS RankPrice
+	FROM Passengers AS p
+	  JOIN Tickets AS t ON t.PassengerId = p.Id
+	  JOIN Flights AS f ON f.Id = t.FlightId) AS k
+
+WHERE k.RankPrice =1
+ORDER BY k.Price DESC,
+		k.FirstName,
+		k.LastName,
+		k.Destination
+
+--    16. Destinations Info
+
+SELECT Destination, COUNT(t.Id) AS FilesCount
+FROM Flights AS f
+	LEFT JOIN Tickets AS t
+	ON f.Id = t.FlightId
+GROUP BY Destination
+ORDER BY FilesCount DESC,Destination
+
+--    17.  PSP
+
+SELECT p.[Name], p.Seats, COUNT(t.ID) AS [Passenger Count]
+FROM Planes AS p
+	LEFT JOIN Flights AS f ON p.Id = f.PlaneId
+	LEFT JOIN Tickets AS t ON t.FlightId =f.Id	
+GROUP BY p.[Name], p.Seats
+Order BY [Passenger Count] DESC,
+		p.[Name],
+		p.Seats
+
+
+
+
 
 
 
