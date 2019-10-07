@@ -1,0 +1,188 @@
+CREATE DATABASE Airport
+USE Airport
+--Sec 1
+--P1
+USE SoftUni
+DROP DATABASE Airport
+
+CREATE TABLE Planes (
+	Id INT PRIMARY KEY IDENTITY  ,
+	[Name] NVARCHAR (30) NOT NULL,
+	Seats INT NOT NULL,
+	[Range] INT NOT NULL)
+
+CREATE TABLE Flights(
+	Id INT PRIMARY KEY IDENTITY,
+	DepartureTime DATETIME,
+	ArrivalTime DATETIME,
+	Origin NVARCHAR(50) NOT NULL,
+	Destination NVARCHAR(50) NOT NULL,
+	PlaneId INT NOT NULL
+	CONSTRAINT FK_F_Planes
+  FOREIGN KEY (PlaneId) 				
+  REFERENCES Planes(ID)
+  )
+	
+CREATE TABLE Passengers(
+Id INT PRIMARY KEY IDENTITY,
+FirstName NVARCHAR(30) NOT NULL,
+LastName NVARCHAR(30) NOT NULL,
+AGE INT NOT NULL,
+[Address] NVARCHAR (30) NOT NULL,
+PassportId CHAR(11) NOT NULL
+)
+
+CREATE TABLE LuggageTypes (
+Id INT PRIMARY KEY IDENTITY,
+[Type] NVARCHAR(30) NOT NULL
+)
+
+CREATE TABLE Luggages(
+Id INT PRIMARY KEY IDENTITY,
+LuggageTypeId INT NOT NULL
+FOREIGN KEY (LuggageTypeId) 				
+  REFERENCES LuggageTypes(Id),
+PassengerId INT NOT NULL
+CONSTRAINT FK_L_Passengers
+  FOREIGN KEY (PassengerId) 				
+  REFERENCES Passengers(Id)
+  )
+
+CREATE TABLE Tickets(
+Id INT PRIMARY KEY IDENTITY,
+PassengerId INT NOT NULL
+	CONSTRAINT FK_T_Passengers
+	FOREIGN KEY (PassengerId) 				
+	REFERENCES Passengers(Id),
+FlightId INT NOT NULL
+	CONSTRAINT FK_T_Flights
+	FOREIGN KEY (FlightId) 				
+	REFERENCES Flights(Id),
+LuggageId INT NOT NULL
+	CONSTRAINT FK_T_Luggages
+	FOREIGN KEY (LuggageId) 				
+	REFERENCES Luggages(Id),
+Price DECIMAL (10,2) NOT NULL
+)
+
+--Sec 2 
+--P2
+INSERT INTO Planes([Name], Seats, Range)
+VALUES	('Airbus 336', 112, 5132),
+		('Airbus 330', 432, 5325),
+		('Boeing 369', 231, 2355),
+		('Stelt 297', 254, 2143),
+		('Boeing 338', 165, 5111),
+		('Airbus 558', 387, 1342),
+		('Boeing 128', 345, 5541)
+
+INSERT INTO LuggageTypes([Type])
+VALUES	('Crossbody Bag'),
+		('School Backpack'),
+		('Shoulder Bag')
+
+--P3
+UPDATE Tickets
+SET Price *=1.13
+WHERE FlightId=
+	(SELECT TOP(1) Id
+	FROM Flights
+	WHERE Destination = 'Carlsbad'
+	)
+
+--P4
+DELETE FROM Tickets
+WHERE FlightId =
+	(SELECT TOP(1) Id
+	FROM Flights
+	WHERE Destination = 'Ayn Halagim')
+
+DELETE FROM Tickets
+WHERE FlightId = 
+	(SELECT TOP(1) Id 
+	FROM Flights 
+	WHERE Destination = 'Ayn Halagim')
+
+--P5
+SELECT Origin,Destination
+FROM Flights
+ORDER BY Origin, Destination
+
+--P6
+SELECT Id,[Name],Seats,Range
+FROM Planes
+WHERE LOWER([Name]) LIKE '%tr%'
+ORDER BY Id, [Name],Seats,[Range]
+
+--P7
+SELECT FlightId, SUM(Price) AS Price
+FROM Tickets
+GROUP BY FlightId
+ORDER BY Price DESC, FlightId
+
+ --P8
+
+ SELECT TOP(10) p.FirstName, p.LastName,t.Price
+ FROM Passengers AS p
+	JOIN Tickets AS t
+	ON p.Id =t.PassengerId
+ORDER BY t.Price DESC, p.FirstName, p.LastName
+
+--P9
+
+SELECT lt.[Type], COUNT([Type]) AS MostUsedLuggage
+FROM Passengers AS p
+	JOIN Luggages AS l
+	ON p.Id =l.PassengerId
+	JOIN LuggageTypes AS lt
+	ON lt.Id =l.LuggageTypeId
+GROUP BY lt.Type
+ORDER BY MostUsedLuggage DESC,lt.Type
+
+--P10
+
+SELECT CONCAT(p.FirstName,' ',p.LastName) AS [Full Name],
+		f.Origin,
+		f.Destination
+FROM Passengers AS p
+	JOIN Tickets AS t
+	ON p.Id =t.PassengerId
+	JOIN Flights AS f
+	ON t.FlightId =f.Id
+ORDER BY [Full Name],Origin,Destination
+
+--P11
+SELECT p.FirstName,p.LastName, p.AGE		
+FROM Passengers AS p
+	LEFT JOIN Tickets AS t
+	ON p.Id =t.PassengerId
+	LEFT JOIN Flights AS f
+	ON t.FlightId =f.Id
+WHERE t.Id IS NULL
+ORDER BY p.AGE DESC, p.FirstName,p.LastName
+
+--P12
+SELECT p.PassportId, p.[Address]
+FROM Passengers AS p
+	LEFT JOIN Luggages AS l
+	ON l.PassengerId = p.Id
+WHERE  l.Id IS NULL
+ORDER BY p.PassportId, p.Address
+
+--P13
+SELECT p.FirstName AS [First Name],
+		p.LastName AS [Last Name],
+		COUNT (t.PassengerId) AS [Total Trips]
+	FROM Passengers AS p
+		LEFT JOIN Tickets AS t
+		ON p.Id = t.PassengerId
+GROUP BY FirstName, LastName	
+ORDER BY [Total Trips] DESC, FirstName,LastName
+
+
+
+
+
+
+
+
