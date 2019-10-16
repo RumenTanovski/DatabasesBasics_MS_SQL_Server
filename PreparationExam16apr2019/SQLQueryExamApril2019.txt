@@ -84,8 +84,8 @@ VALUES	('Crossbody Bag'),
 --P3
 UPDATE Tickets
 SET Price *=1.13
-WHERE FlightId=
-	(SELECT TOP(1) Id
+WHERE FlightId IN
+	(SELECT Id
 	FROM Flights
 	WHERE Destination = 'Carlsbad'
 	)
@@ -97,11 +97,8 @@ WHERE FlightId =
 	FROM Flights
 	WHERE Destination = 'Ayn Halagim')
 
-DELETE FROM Tickets
-WHERE FlightId = 
-	(SELECT TOP(1) Id 
-	FROM Flights 
-	WHERE Destination = 'Ayn Halagim')
+DELETE FROM Flights
+WHERE Destination = 'Ayn Halagim'
 
 --P5
 SELECT Origin,Destination
@@ -241,6 +238,83 @@ GROUP BY p.[Name], p.Seats
 Order BY [Passenger Count] DESC,
 		p.[Name],
 		p.Seats
+
+-- 18. Vacation
+
+GO
+ CREATE FUNCTION udf_CalculateTickets(@origin NVARCHAR(50), @destination NVARCHAR(50), @peopleCount INT)
+ RETURNS VARCHAR(30)
+ AS
+ BEGIN
+
+	IF (@peopleCount<=0) RETURN 'Invalid people count!'
+	
+	DECLARE @priceTicket DECIMAL(15,2)=
+	(SELECT TOP(1) t.Price
+	FROM Flights AS f
+		JOIN Tickets AS t
+		ON t.FlightId  = f.Id
+		WHERE f.Origin = @origin AND f.Destination=@destination
+	)
+
+	IF (@priceTicket IS NULL) RETURN 'Invalid flight!'	
+
+	RETURN CONCAT('Total price ',(@priceTicket*@peopleCount))
+	
+ END
+ 
+ --    19. Wrong Data
+ GO
+
+ CREATE PROC usp_CancelFlights
+ AS 
+ BEGIN 
+	UPDATE Flights
+	SET DepartureTime =NULL , ArrivalTime= NULL
+	WHERE DATEDIFF(SECOND,DepartureTime, ArrivalTime)>0
+ END
+
+--     20.  Deleted Planes
+GO
+
+ CREATE TABLE DeletedPlanes
+(
+	Id INT,
+	[Name] VARCHAR(50),
+	Seats INT,
+	[Range] INT
+);
+
+CREATE TRIGGER tr_DeletedPlanes ON [dbo].[Planes] FOR DELETE
+AS
+BEGIN
+	INSERT INTO [dbo].[DeletedPlanes]
+	(
+	    [Id],
+	    [Name],
+	    [Seats],
+	    [Range]
+	)
+	SELECT * FROM [DELETED] AS d
+END
+
+DELETE Tickets
+WHERE FlightId IN (SELECT Id FROM Flights WHERE PlaneId = 8)
+
+DELETE FROM Flights
+WHERE PlaneId = 8
+
+DELETE FROM Planes
+WHERE Id = 8
+
+
+
+
+
+
+
+
+
 
 
 
