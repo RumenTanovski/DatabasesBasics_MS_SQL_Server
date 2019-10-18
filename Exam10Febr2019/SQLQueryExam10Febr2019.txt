@@ -1,0 +1,291 @@
+CREATE DATABASE ColonialJourney
+USE  ColonialJourney
+
+-- 1.DDL
+CREATE TABLE Planets(
+Id INT PRIMARY KEY IDENTITY,
+[Name] VARCHAR(30) NOT NULL
+)
+
+CREATE TABLE Spaceports(
+ Id INT PRIMARY KEY IDENTITY,
+[Name] VARCHAR(50) NOT NULL,
+PlanetId INT NOT NULL
+FOREIGN KEY REFERENCES Planets(Id)
+)
+
+CREATE TABLE Spaceships(
+Id INT PRIMARY KEY IDENTITY,
+[Name] VARCHAR(50) NOT NULL,
+Manufacturer VARCHAR(30) NOT NULL,
+LightSpeedRate INT DEFAULT(0)
+) 
+
+CREATE TABLE Colonists(
+Id INT PRIMARY KEY IDENTITY,
+FirstName VARCHAR(20) NOT NULL,
+LastName VARCHAR(20) NOT NULL,
+Ucn VARCHAR(10) NOT NULL UNIQUE,
+BirthDate DATE NOT NULL
+)
+
+CREATE TABLE Journeys(
+Id INT PRIMARY KEY IDENTITY,
+JourneyStart DATETIME NOT NULL, 
+JourneyEnd DATETIME NOT NULL,
+Purpose VARCHAR(11) CHECK(Purpose IN('Medical','Technical',
+'Educational','Military')),
+DestinationSpaceportId INT NOT NULL FOREIGN KEY REFERENCES Spaceports(Id),
+SpaceshipId INT NOT NULL FOREIGN KEY REFERENCES Spaceships(Id)
+)
+
+CREATE TABLE TravelCards(
+Id INT PRIMARY KEY IDENTITY,
+CardNumber CHAR(10) NOT NULL UNIQUE,
+JobDuringJourney VARCHAR(8) CHECK(JobDuringJourney IN('Pilot', 
+'Engineer','Trooper','Cleaner','Cook')),
+ColonistId INT NOT NULL FOREIGN KEY REFERENCES Colonists(Id), 
+JourneyId INT NOT NULL FOREIGN KEY REFERENCES Journeys(Id)
+)
+
+--2 Insert
+
+INSERT INTO Planets(Name)
+VALUES ('Mars'),
+	('Earth'),
+	('Jupiter'),
+	('Saturn')
+
+INSERT INTO Spaceships([Name], Manufacturer,LightSpeedRate)
+VALUES	('Golf','VW',3),
+		('WakaWaka','Wakanda',4),
+		('Falcon9','SpaceX',1),
+		('Bed','Vidolov',6)
+
+--   3.UPDATE
+
+UPDATE Spaceships
+SET LightSpeedRate+=1
+WHERE  Id BETWEEN 8 AND 12
+
+-- 4.DELETE
+
+DELETE FROM TravelCards
+WHERE JourneyId IN
+	(SELECT TOP(3) Id
+	FROM Journeys
+	)
+
+DELETE FROM Journeys
+WHERE Id IN
+	(SELECT TOP(3) Id
+	FROM Journeys
+	)
+
+-- 5. Select all travel cards
+
+SELECT CardNumber, JobDuringJourney 
+FROM TravelCards
+ORDER BY CardNumber
+
+--    6. Select all colonists
+
+SELECT Id, CONCAT(FirstName,' ',LastName) AS FullName, Ucn
+FROM Colonists
+ORDER BY FirstName, LastName, Id
+
+--    7. Select all military journeys
+
+SELECT Id, FORMAT (JourneyStart, 'dd/MM/yyyy') AS JourneyStart,
+			FORMAT (JourneyEnd, 'dd/MM/yyyy') AS JourneyEnd
+FROM Journeys AS j	
+WHERE Purpose  = 'Military'
+ORDER bY JourneyStart
+
+--    8. Select all pilots
+
+SELECT c.Id, CONCAT(c.FirstName,' ',c.LastName) AS full_name
+FROM Colonists AS c
+	JOIN TravelCards AS tc
+	ON c.Id = tc.ColonistId
+WHERE tc.JobDuringJourney ='Pilot' 
+ORDER BY c.Id
+
+--     9. Count colonists
+SELECT COUNT(*)
+FROM Colonists AS c
+	LEFT JOIN TravelCards AS tc
+	ON c.Id = tc.ColonistId
+	LEFT JOIN Journeys AS j
+	ON tc.JourneyId = j.Id
+WHERE j.Purpose = 'Technical'
+
+--     10. Select the fastest spaceship
+
+SELECT TOP(1) s.[Name] AS SpaceshipName,sp.[Name] AS SpaceportName
+FROM Spaceships AS s
+	JOIN Journeys AS j
+	ON s.Id = j.SpaceshipId
+	JOIN Spaceports AS sp
+	ON sp.Id =j.DestinationSpaceportId
+ORDER BY s.LightSpeedRate DESC
+
+--    11. Select spaceships with pilots younger than 30 years
+GO 
+SELECT ss.Name, ss.Manufacturer
+FROM Spaceships AS ss
+	JOIN Journeys AS j
+	ON ss.Id =j.SpaceshipId 
+	JOIN TravelCards AS tc
+	ON j.Id = tc.JourneyId
+	JOIN Colonists AS c
+	ON tc.ColonistId=c.Id
+WHERE tc.JobDuringJourney='Pilot'
+ AND DATEDIFF(YEAR,c.BirthDate,'01/01/2019')<30
+ORDER BY ss.Name
+
+--    12. Select all educational mission planets and spaceports
+--Purpose 'Educational'
+
+SELECT p.Name AS Planetname, sp.Name AS SpaceportName
+FROM Planets As p
+	JOIN  Spaceports AS sp
+	ON p.Id =sp.PlanetId
+	JOIN Journeys As j
+	ON sp.Id = j.DestinationSpaceportId
+WHERE Purpose = 'Educational'
+ORDER BY sp.[Name] DESC
+
+--    13. Select all planets and their journey count
+
+SELECT p.Name AS PlanetName, COUNT(j.Id) AS JourneysCount
+FROM Planets As p
+	JOIN  Spaceports AS sp
+	ON p.Id =sp.PlanetId
+	JOIN Journeys As j
+	ON sp.Id = j.DestinationSpaceportId
+GROUP BY p.Name
+ORDER BY COUNT(j.Id) DESC , p.Name
+
+ --   14. Select the shortest journey
+
+ SELECT TOP(1)j.Id,
+		p.Name AS PlanetName,
+		sp.Name AS SpaceportName ,
+		j.Purpose AS JourneyPurpose
+ FROM Journeys AS j
+ JOIN Spaceports AS sp
+ ON j.DestinationSpaceportId = sp.Id
+ JOIN Planets AS p
+ ON sp.PlanetId = p.Id 
+ ORDER BY DATEDIFF(SECOND,j.JourneyEnd,j.JourneyStart) DESC
+
+ --    15. Select the less popular job
+
+SELECT TOP(1) j.Id AS JourneyId, tc.JobDuringJourney AS JobName
+FROM Journeys AS j
+	JOIN TravelCards AS tc
+	ON tc.JourneyId =  j.Id
+ORDER BY DATEDIFF(SECOND,j.JourneyEnd,j.JourneyStart) 
+
+--     16. Select Second Oldest Important Colonist
+SELECT	subt.JobDuringJourney, 
+		CONCAT(c.FirstName,' ',c.LastName) AS FullName,
+		subt.JobRank
+FROM (SELECT tc.JobDuringJourney AS JobDuringJourney, tc.ColonistId,
+  DENSE_RANK() OVER (PARTITION BY tc.JobDuringJourney ORDER BY co.Birthdate ASC) AS JobRank
+  FROM TravelCards AS tc
+  JOIN Colonists AS co ON co.Id = tc.ColonistId
+  GROUP BY tc.JobDuringJourney, co.Birthdate, tc.ColonistId) AS subt 
+JOIN Colonists AS c 
+ON c.Id = subt.ColonistId
+  WHERE subt.JobRank = 2
+  ORDER BY subt.JobDuringJourney
+
+  --    17. Planets and Spaceports
+  SELECT p.Name, COUNT(s.Id) AS [Count]
+  FROM Planets AS p
+	LEFT JOIN Spaceports AS s
+	ON p.Id =s.PlanetId
+GROUP BY p.Name
+ORDER BY [Count] DESC, p.Name
+
+--    18. Get Colonists Count
+GO
+
+CREATE FUNCTION udf_GetColonistsCount(@PlanetName VARCHAR(30))
+RETURNS INT
+AS
+BEGIN
+	RETURN (SELECT COUNT(*) FROM Journeys AS j
+	JOIN Spaceports AS s ON s.Id = j.DestinationSpaceportId
+	JOIN Planets AS p ON p.Id = s.PlanetId
+	JOIN TravelCards AS tc ON tc.JourneyId = j.Id
+	JOIN Colonists AS c ON c.Id = tc.ColonistId
+	WHERE p.Name = @PlanetName)
+END
+GO
+
+
+SELECT dbo.udf_GetColonistsCount ('Otroyphus')
+
+--   19. Change Journey Purpose
+
+GO 
+CREATE PROC usp_ChangeJourneyPurpose(@JourneyId INT, @NewPurpose VARCHAR(50))
+AS
+BEGIN
+	DECLARE @existId INT =
+		(
+		SELECT Id
+		FROM Journeys
+		WHERE Id=@JourneyId
+		)
+	IF (@existId IS NULL)
+	BEGIN
+		RAISERROR ('The journey does not exist!',16,1)
+		RETURN 
+	END
+	ELSE IF(@NewPurpose =(
+						SELECT Purpose
+						FROM Journeys
+						WHERE Id = @JourneyId
+						)
+			)
+	BEGIN
+	RAISERROR ('You cannot change the purpose!',16,1)
+		RETURN 
+	END	
+
+	UPDATE Journeys
+	SET Purpose = @NewPurpose
+	WHERE Id=@JourneyId
+	
+END
+
+
+EXEC usp_ChangeJourneyPurpose 1, 'Technical'
+SELECT * FROM Journeys
+EXEC usp_ChangeJourneyPurpose 2, 'Educational'
+EXEC usp_ChangeJourneyPurpose 196, 'Technical'
+
+--20. Deleted Journeys
+CREATE TABLE DeletedJourneys
+(
+	Id INT,
+	JourneyStart DATETIME,
+	JourneyEnd DATETIME,
+	Purpose VARCHAR(11),
+	DestinationSpaceportId INT,
+	SpaceshipId INT
+)
+GO
+CREATE TRIGGER t_DeleteJourney
+	ON Journeys
+	AFTER DELETE
+AS
+	BEGIN
+		INSERT INTO DeletedJourneys(Id,JourneyStart,JourneyEnd,Purpose,DestinationSpaceportId,
+		SpaceshipId)
+		SELECT Id,JourneyStart,JourneyEnd, Purpose, DestinationSpaceportId, SpaceshipId FROM deleted
+	END
